@@ -304,7 +304,7 @@ module Trove
       pp = partition p
       d = digest pp[:b], encode v
 
-      ik = Bytes.new 36
+      ik = Bytes.new 20
       d.copy_to ik.to_unsafe, 16
       ppi = pp[:i]
       Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
