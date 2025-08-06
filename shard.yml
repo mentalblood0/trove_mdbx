@@ -1,0 +1,15 @@
+name: trove
+version: 0.1.0
+
+authors:
+  - mentalblood0 <necheporenko.stepan@yandex.ru>
+
+dependencies:
+  mdbx:
+    github: mentalblood0/mdbx
+  xxhash128:
+    github: mentalblood0/xxhash128
+
+crystal: '>= 1.17.0'
+
+license: MIT
