@@ -40,6 +40,10 @@ module Trove
       @o = @tx.db @tx.dbi "o"
     end
 
+    def transaction(&)
+      @tx.transaction { |tx| yield Transaction.new tx }
+    end
+
     protected def new_oid : Oid
       UUID.v7.bytes.to_slice.clone
     end
@@ -61,7 +65,7 @@ module Trove
     end
 
     def oids
-      @tx.db(@o).all.map { |o, _| o }
+      @o.all.map { |o, _| o }
     end
 
     macro mwo
@@ -90,7 +94,7 @@ module Trove
             end
             oid = i
           end
-          flat[d[:dp]] = A.new decode v
+          flat[String.new k[16..]] = A.new decode String.new v
         end
         if oid
           mwo
@@ -183,7 +187,7 @@ module Trove
 
     protected def deletei(i : Oid, p : String)
       pp = partition p
-      d = digest pp[:b], (@d.get(i + p.to_slice).not_nil! rescue return)
+      d = digest pp[:b], (String.new @d.get(i + p.to_slice).not_nil! rescue return)
       @i.delete d + begin
         r = Slice(UInt32).new 1
         r[0] = pp[:i]
@@ -194,7 +198,7 @@ module Trove
 
     def set!(i : Oid, p : String, o : A)
       deletei i, p
-      @o.upsert i
+      @o.upsert i, Bytes.new 0
       set i, p, o.raw
     end
 
@@ -236,8 +240,8 @@ module Trove
     end
 
     def has_key?(i : Oid, p : String = "")
-      @d.from i do |k, _|
-        st = i + p.to_slice
+      st = i + p.to_slice
+      @d.from st do |k, _|
         return k.size >= st.size && k[..st.size - 1] == st
       end
       false
@@ -291,13 +295,13 @@ module Trove
     def where(p : String, v : I, &)
       pp = partition p
       d = digest pp[:b], encode v
-      @i.from(d, begin
+      @i.from(d + begin
         r = Slice(UInt32).new 1
         r[0] = pp[:i]
         r.to_unsafe.as(UInt8*).to_slice 4
       end) do |k, v|
         break unless k[..15] == d
-        yield k[..15]
+        yield k[-16..]
       end
     end
 
