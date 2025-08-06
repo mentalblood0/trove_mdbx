@@ -169,13 +169,15 @@ module Trove
       end
       @d.upsert i + p.to_slice, oe.to_slice
       pp = partition p
-      ppib = begin
-        r = Slice(UInt32).new 1
-        r[0] = pp[:i]
-        r.to_unsafe.as(UInt8*).to_slice 4
-      end
       d = digest pp[:b], oe
-      @i.upsert d + ppib + i, Bytes.new 0
+
+      ik = Bytes.new 36
+      d.copy_to ik.to_unsafe, 16
+      ppi = pp[:i]
+      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
+      i.copy_to ik.to_unsafe + 20, 16
+
+      @i.upsert ik, Bytes.new 0
       @u.upsert d, i
     end
 
@@ -188,11 +190,14 @@ module Trove
     protected def deletei(i : Oid, p : String)
       pp = partition p
       d = digest pp[:b], (String.new @d.get(i + p.to_slice).not_nil! rescue return)
-      @i.delete d + begin
-        r = Slice(UInt32).new 1
-        r[0] = pp[:i]
-        r.to_unsafe.as(UInt8*).to_slice 4
-      end + i
+
+      ik = Bytes.new 36
+      d.copy_to ik.to_unsafe, 16
+      ppi = pp[:i]
+      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
+      i.copy_to ik.to_unsafe + 20, 16
+
+      @i.delete ik
       @u.delete d
     end
 
@@ -271,11 +276,14 @@ module Trove
       @d.delete i + p.to_slice
       pp = partition p
       d = digest pp[:b], ve
-      @i.delete d + begin
-        r = Slice(UInt32).new 1
-        r[0] = pp[:i]
-        r.to_unsafe.as(UInt8*).to_slice 4
-      end + i
+
+      ik = Bytes.new 36
+      d.copy_to ik.to_unsafe, 16
+      ppi = pp[:i]
+      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
+      i.copy_to ik.to_unsafe + 20, 16
+
+      @i.delete ik
       @u.delete d
     end
 
@@ -295,11 +303,13 @@ module Trove
     def where(p : String, v : I, &)
       pp = partition p
       d = digest pp[:b], encode v
-      @i.from(d + begin
-        r = Slice(UInt32).new 1
-        r[0] = pp[:i]
-        r.to_unsafe.as(UInt8*).to_slice 4
-      end) do |k, v|
+
+      ik = Bytes.new 36
+      d.copy_to ik.to_unsafe, 16
+      ppi = pp[:i]
+      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
+
+      @i.from ik do |k, v|
         break unless k[..15] == d
         yield k[-16..]
       end
