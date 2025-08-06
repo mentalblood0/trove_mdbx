@@ -40,8 +40,8 @@ module Trove
       @o = @tx.db @tx.dbi "o"
     end
 
-    protected def oid : Oid
-      UUID.v7.bytes.to_slice
+    protected def new_oid : Oid
+      UUID.v7.bytes.to_slice.clone
     end
 
     protected def digest(data : Bytes)
@@ -199,7 +199,7 @@ module Trove
     end
 
     def <<(o : A)
-      i = oid
+      i = new_oid
       set i, "", o
       i
     end
@@ -238,7 +238,7 @@ module Trove
     def has_key?(i : Oid, p : String = "")
       @d.from i do |k, _|
         st = i + p.to_slice
-        return k[..st.size - 1] == st
+        return k.size >= st.size && k[..st.size - 1] == st
       end
       false
     end
@@ -250,8 +250,8 @@ module Trove
     def get(i : Oid, p : String = "")
       flat = H.new
       st = i + p.to_slice
-      @d.from(i + p.to_slice) do |k, o|
-        break unless k[..st.size - 1] == st
+      @d.from(st) do |k, o|
+        break unless k.size >= st.size && k[..st.size - 1] == st
         flat[String.new(k[16..]).lchop(p).lchop('.')] = A.new decode String.new o
       end
       return nil if flat.size == 0
@@ -279,7 +279,7 @@ module Trove
       @o.delete i if p.empty?
       st = i + p.to_slice
       @d.from(i + p.to_slice) do |k, o|
-        break unless k[..st.size - 1] == st
+        break unless k.size >= st.size && k[..st.size - 1] == st
         delete i, String.new(k[16..]), String.new(o)
       end
     end

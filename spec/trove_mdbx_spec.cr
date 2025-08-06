@@ -1,6 +1,6 @@
 require "spec"
 
-require "../src/trove"
+require "../src/trove_mdbx"
 require "./common.cr"
 
 describe Trove do
@@ -40,37 +40,37 @@ describe Trove do
     chest.transaction do |tx|
       oid = tx << parsed
       tx.get(oid).should eq parsed
+      tx.get(oid, "dict").should eq parsed["dict"]
+      tx.get(oid, "dict.hello").should eq parsed["dict"]["hello"]
+      tx.get(oid, "dict.boolean").should eq parsed["dict"]["boolean"]
+
+      #   # get! is faster than get, but expects simple value
+      #   # because under the hood all values in trove are simple
+      #   # and get! just gets value by key, without range scan
+
+      tx.get!(oid, "dict.boolean").should eq parsed["dict"]["boolean"]
+      tx.get!(oid, "dict").should eq nil
+      tx.get!(oid, "dict.hello.0").should eq parsed["dict"]["hello"][0]
+      tx.get!(oid, "dict.hello.1").should eq parsed["dict"]["hello"][1]
+      tx.get!(oid, "dict.hello.2").should eq parsed["dict"]["hello"][2]
+      tx.get!(oid, "dict.hello.3").should eq parsed["dict"]["hello"][3]
+      tx.get!(oid, "null").should eq nil
+      tx.get!(oid, "nonexistent.key").should eq nil
+      tx.get(oid, "array").should eq parsed["array"]
+      tx.get!(oid, "array.0").should eq parsed["array"][0]
+      tx.get(oid, "array.1").should eq parsed["array"][1]
+      tx.get!(oid, "array.1.0").should eq parsed["array"][1][0]
+      tx.get!(oid, "array.1.1").should eq parsed["array"][1][1]
+      tx.get(oid, "array.2").should eq parsed["array"][2]
+      tx.get!(oid, "array.2.0").should eq parsed["array"][2][0]
+
+      tx.has_key?(oid, "null").should eq true
+      tx.has_key!(oid, "null").should eq true
+      tx.has_key?(oid, "dict").should eq true
+      tx.has_key!(oid, "dict").should eq false
+      tx.has_key?(oid, "nonexistent.key").should eq false
+      tx.has_key!(oid, "nonexistent.key").should eq false
     end
-    #   chest.get(oid, "dict").should eq parsed["dict"]
-    #   chest.get(oid, "dict.hello").should eq parsed["dict"]["hello"]
-    #   chest.get(oid, "dict.boolean").should eq parsed["dict"]["boolean"]
-
-    #   # get! is faster than get, but expects simple value
-    #   # because under the hood all values in trove are simple
-    #   # and get! just gets value by key, without range scan
-
-    #   chest.get!(oid, "dict.boolean").should eq parsed["dict"]["boolean"]
-    #   chest.get!(oid, "dict").should eq nil
-    #   chest.get!(oid, "dict.hello.0").should eq parsed["dict"]["hello"][0]
-    #   chest.get!(oid, "dict.hello.1").should eq parsed["dict"]["hello"][1]
-    #   chest.get!(oid, "dict.hello.2").should eq parsed["dict"]["hello"][2]
-    #   chest.get!(oid, "dict.hello.3").should eq parsed["dict"]["hello"][3]
-    #   chest.get!(oid, "null").should eq nil
-    #   chest.get!(oid, "nonexistent.key").should eq nil
-    #   chest.get(oid, "array").should eq parsed["array"]
-    #   chest.get!(oid, "array.0").should eq parsed["array"][0]
-    #   chest.get(oid, "array.1").should eq parsed["array"][1]
-    #   chest.get!(oid, "array.1.0").should eq parsed["array"][1][0]
-    #   chest.get!(oid, "array.1.1").should eq parsed["array"][1][1]
-    #   chest.get(oid, "array.2").should eq parsed["array"][2]
-    #   chest.get!(oid, "array.2.0").should eq parsed["array"][2][0]
-
-    #   chest.has_key?(oid, "null").should eq true
-    #   chest.has_key!(oid, "null").should eq true
-    #   chest.has_key?(oid, "dict").should eq true
-    #   chest.has_key!(oid, "dict").should eq false
-    #   chest.has_key?(oid, "nonexistent.key").should eq false
-    #   chest.has_key!(oid, "nonexistent.key").should eq false
 
     #   chest.oids.should eq [oid]
 
