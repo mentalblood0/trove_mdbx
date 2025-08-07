@@ -26,7 +26,7 @@ module Trove
     end
   end
 
-  class Transaction
+  struct Transaction
     getter tx : Mdbx::Transaction
     getter d : Mdbx::Db
     getter i : Mdbx::Db
@@ -34,10 +34,10 @@ module Trove
     getter o : Mdbx::Db
 
     def initialize(@tx)
-      @d = @tx.db @tx.dbi "d"
-      @i = @tx.db @tx.dbi "i"
-      @u = @tx.db @tx.dbi "u"
-      @o = @tx.db @tx.dbi "o"
+      @d = @tx.db 2
+      @i = @tx.db 3
+      @u = @tx.db 4
+      @o = @tx.db 5
     end
 
     def transaction(&)
@@ -130,23 +130,23 @@ module Trove
       case v
       when String
         r = Bytes.new 1 + v.bytesize
-        r[0] = 's'.ord.to_u8
+        r[0] = {{'s'.ord}}.to_u8
         v.to_unsafe.copy_to r.to_unsafe + 1, v.bytesize
         r
       when Int64
         r = Bytes.new 1 + 8
-        r[0] = 'i'.ord.to_u8
+        r[0] = {{'i'.ord}}.to_u8
         IO::ByteFormat::LittleEndian.encode(v, r[1..])
         r
       when Float64
         r = Bytes.new 1 + 8
-        r[0] = 'f'.ord.to_u8
+        r[0] = {{'f'.ord}}.to_u8
         IO::ByteFormat::LittleEndian.encode(v, r[1..])
         r
       when true
-        Bytes.new 1, 'T'.ord.to_u8
+        Bytes.new 1, {{'T'.ord}}.to_u8
       when false
-        Bytes.new 1, 'F'.ord.to_u8
+        Bytes.new 1, {{'F'.ord}}.to_u8
       when nil
         Bytes.empty
       else
@@ -157,15 +157,15 @@ module Trove
     protected def decode(b : Bytes) : I
       return nil if b.empty?
       case b[0]
-      when 's'.ord.to_u8
+      when {{'s'.ord}}
         String.new b[1..]
-      when 'i'.ord.to_u8
+      when {{'i'.ord}}
         IO::ByteFormat::LittleEndian.decode(Int64, b[1..])
-      when 'f'.ord.to_u8
+      when {{'f'.ord}}
         IO::ByteFormat::LittleEndian.decode(Float64, b[1..])
-      when 'T'.ord.to_u8
+      when {{'T'.ord}}
         true
-      when 'F'.ord.to_u8
+      when {{'F'.ord}}
         false
       end
     end
@@ -284,7 +284,7 @@ module Trove
       d = digest pp[:b], ve
 
       raise "Index record not found for #{i} #{p} #{ve}" unless @i.delete ike d, pp[:i], i
-      @d.delete i + p.to_slice
+      @d.delete st
       @u.delete d
     end
 
