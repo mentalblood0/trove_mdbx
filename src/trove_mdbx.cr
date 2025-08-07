@@ -53,8 +53,24 @@ module Trove
       pointerof(d).as(UInt8*).to_slice(16).clone
     end
 
-    protected def digest(pb : String, ve : Bytes)
-      digest [pb, ve.hexstring].to_json.to_slice
+    protected def digest(pb : Bytes, ve : Bytes)
+      ds = Bytes.new pb.size + 1 + ve.size
+      pb.copy_to ds.to_unsafe, pb.size
+      ve.copy_to ds.to_unsafe + pb.size + 1, ve.size
+      digest ds
+    end
+
+    protected def partition(p : Bytes)
+      dl = p.rindex '.'.ord.to_u8
+      {b: p[..dl.not_nil! - 1], i: String.new(p[dl.not_nil! + 1..]).to_u32} rescue {b: p, i: 0_u32}
+    end
+
+    protected def ike(d : Bytes, i : UInt32, oid : Bytes)
+      r = Bytes.new 36
+      d.copy_to r.to_unsafe, 16
+      IO::ByteFormat::LittleEndian.encode i, r[16..]
+      oid.copy_to r.to_unsafe + 20, 16
+      r
     end
 
     def oids(&)
@@ -154,19 +170,6 @@ module Trove
       end
     end
 
-    protected def partition(p : String)
-      pp = p.rpartition '.'
-      {b: pp[0], i: pp[2].to_u32} rescue {b: p, i: 0_u32}
-    end
-
-    protected def ike(d : Bytes, i : UInt32, oid : Bytes)
-      r = Bytes.new 36
-      d.copy_to r.to_unsafe, 16
-      IO::ByteFormat::LittleEndian.encode i, r[16..]
-      oid.copy_to r.to_unsafe + 20, 16
-      r
-    end
-
     protected def set(i : Oid, p : String, o : A::Type)
       case o
       when H
@@ -182,10 +185,11 @@ module Trove
         oe = encode o
       end
       @d.upsert i + p.to_slice, oe.to_slice
-      pp = partition p
+      pp = partition p.to_slice
       d = digest pp[:b], oe
 
-      @i.upsert ike(d, pp[:i], i), Bytes.empty
+      ik = ike d, pp[:i], i
+      @i.upsert ik, Bytes.empty
       @u.upsert d, i
     end
 
@@ -196,7 +200,7 @@ module Trove
     end
 
     protected def deletei(i : Oid, p : String)
-      pp = partition p
+      pp = partition p.to_slice
       d = digest pp[:b], (@d.get(i + p.to_slice).not_nil! rescue return)
 
       @i.delete ike d, pp[:i], i
@@ -261,7 +265,7 @@ module Trove
     def get(i : Oid, p : String = "")
       flat = H.new
       st = i + p.to_slice
-      @d.from(st) do |k, o|
+      @d.from st do |k, o|
         break unless k.size >= st.size && k[..st.size - 1] == st
         flat[String.new(k[16..]).lchop(p).lchop('.')] = A.new decode o
       end
@@ -274,7 +278,7 @@ module Trove
       decode @d.get(i + p.to_slice).not_nil! rescue nil
     end
 
-    protected def delete(i : Oid, p : String, ve : Bytes)
+    protected def delete(i : Oid, p : Bytes, ve : Bytes)
       st = i + p.to_slice
       pp = partition p
       d = digest pp[:b], ve
@@ -289,16 +293,16 @@ module Trove
       st = i + p.to_slice
       @d.from st do |k, o|
         break unless k.size >= st.size && k[..st.size - 1] == st
-        delete i, String.new(k[16..]), o
+        delete i, k[16..], o
       end
     end
 
     def delete!(i : Oid, p : String = "")
-      delete i, p, @d.get(i + p.to_slice).not_nil! rescue return
+      delete i, p.to_slice, @d.get(i + p.to_slice).not_nil! rescue return
     end
 
     def where(p : String, v : I, &)
-      pp = partition p
+      pp = partition p.to_slice
       d = digest pp[:b], encode v
 
       ik = Bytes.new 20
@@ -318,7 +322,7 @@ module Trove
     end
 
     def unique(p : String, v : I)
-      @u.get digest p, encode v
+      @u.get digest p.to_slice, encode v
     end
   end
 end
