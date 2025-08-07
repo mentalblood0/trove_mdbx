@@ -50,14 +50,11 @@ module Trove
 
     protected def digest(data : Bytes)
       d = LibXxhash.xxhash128 data, data.size, 0
-      r = Slice(UInt64).new 2
-      r[0] = d.high64
-      r[1] = d.low64
-      r.to_unsafe.as(UInt8*).to_slice 16
+      pointerof(d).as(UInt8*).to_slice(16).clone
     end
 
-    protected def digest(pb : String, ve : String)
-      digest [pb, ve].to_json.to_slice
+    protected def digest(pb : String, ve : Bytes)
+      digest [pb, ve.hexstring].to_json.to_slice
     end
 
     def oids(&)
@@ -94,7 +91,7 @@ module Trove
             end
             oid = i
           end
-          flat[String.new k[16..]] = A.new decode String.new v
+          flat[String.new k[16..]] = A.new decode v
         end
         if oid
           mwo
@@ -113,37 +110,46 @@ module Trove
 
     alias I = String | Int64 | Float64 | Bool | Nil
 
-    protected def encode(v : I) : String
+    protected def encode(v : I) : Bytes
       case v
       when String
-        "s#{v}"
+        r = Bytes.new 1 + v.bytesize
+        r[0] = 's'.ord.to_u8
+        v.to_unsafe.copy_to r.to_unsafe + 1, v.bytesize
+        r
       when Int64
-        "i#{v}"
+        r = Bytes.new 1 + 8
+        r[0] = 'i'.ord.to_u8
+        IO::ByteFormat::LittleEndian.encode(v, r[1..])
+        r
       when Float64
-        "f#{v}"
+        r = Bytes.new 1 + 8
+        r[0] = 'f'.ord.to_u8
+        IO::ByteFormat::LittleEndian.encode(v, r[1..])
+        r
       when true
-        "T"
+        Bytes.new 1, 'T'.ord.to_u8
       when false
-        "F"
+        Bytes.new 1, 'F'.ord.to_u8
       when nil
-        ""
+        Bytes.empty
       else
         raise "Can not encode #{v}"
       end
     end
 
-    protected def decode(s : String) : I
-      return nil if s.empty?
-      case s[0]
-      when 's'
-        s[1..]
-      when 'i'
-        s[1..].to_i64
-      when 'f'
-        s[1..].to_f
-      when 'T'
+    protected def decode(b : Bytes) : I
+      return nil if b.empty?
+      case b[0]
+      when 's'.ord.to_u8
+        String.new b[1..]
+      when 'i'.ord.to_u8
+        IO::ByteFormat::LittleEndian.decode(Int64, b[1..])
+      when 'f'.ord.to_u8
+        IO::ByteFormat::LittleEndian.decode(Float64, b[1..])
+      when 'T'.ord.to_u8
         true
-      when 'F'
+      when 'F'.ord.to_u8
         false
       end
     end
@@ -151,6 +157,14 @@ module Trove
     protected def partition(p : String)
       pp = p.rpartition '.'
       {b: pp[0], i: pp[2].to_u32} rescue {b: p, i: 0_u32}
+    end
+
+    protected def ike(d : Bytes, i : UInt32, oid : Bytes)
+      r = Bytes.new 36
+      d.copy_to r.to_unsafe, 16
+      IO::ByteFormat::LittleEndian.encode i, r[16..]
+      oid.copy_to r.to_unsafe + 20, 16
+      r
     end
 
     protected def set(i : Oid, p : String, o : A::Type)
@@ -171,39 +185,27 @@ module Trove
       pp = partition p
       d = digest pp[:b], oe
 
-      ik = Bytes.new 36
-      d.copy_to ik.to_unsafe, 16
-      ppi = pp[:i]
-      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
-      i.copy_to ik.to_unsafe + 20, 16
-
-      @i.upsert ik, Bytes.new 0
+      @i.upsert ike(d, pp[:i], i), Bytes.empty
       @u.upsert d, i
     end
 
     def set(i : Oid, p : String, o : A)
       delete i, p unless p.empty? && !@o.get i
-      @o.upsert i, Bytes.new 0
+      @o.upsert i, Bytes.empty
       set i, p, o.raw
     end
 
     protected def deletei(i : Oid, p : String)
       pp = partition p
-      d = digest pp[:b], (String.new @d.get(i + p.to_slice).not_nil! rescue return)
+      d = digest pp[:b], (@d.get(i + p.to_slice).not_nil! rescue return)
 
-      ik = Bytes.new 36
-      d.copy_to ik.to_unsafe, 16
-      ppi = pp[:i]
-      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
-      i.copy_to ik.to_unsafe + 20, 16
-
-      @i.delete ik
+      @i.delete ike d, pp[:i], i
       @u.delete d
     end
 
     def set!(i : Oid, p : String, o : A)
       deletei i, p
-      @o.upsert i, Bytes.new 0
+      @o.upsert i, Bytes.empty
       set i, p, o.raw
     end
 
@@ -261,7 +263,7 @@ module Trove
       st = i + p.to_slice
       @d.from(st) do |k, o|
         break unless k.size >= st.size && k[..st.size - 1] == st
-        flat[String.new(k[16..]).lchop(p).lchop('.')] = A.new decode String.new o
+        flat[String.new(k[16..]).lchop(p).lchop('.')] = A.new decode o
       end
       return nil if flat.size == 0
       return flat[""] if flat.has_key? ""
@@ -269,35 +271,30 @@ module Trove
     end
 
     def get!(i : Oid, p : String)
-      decode String.new(@d.get(i + p.to_slice).not_nil!) rescue nil
+      decode @d.get(i + p.to_slice).not_nil! rescue nil
     end
 
-    protected def delete(i : Oid, p : String, ve : String)
-      @d.delete i + p.to_slice
+    protected def delete(i : Oid, p : String, ve : Bytes)
+      st = i + p.to_slice
       pp = partition p
       d = digest pp[:b], ve
 
-      ik = Bytes.new 36
-      d.copy_to ik.to_unsafe, 16
-      ppi = pp[:i]
-      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
-      i.copy_to ik.to_unsafe + 20, 16
-
-      @i.delete ik
+      raise "Index record not found for #{i} #{p} #{ve}" unless @i.delete ike d, pp[:i], i
+      @d.delete i + p.to_slice
       @u.delete d
     end
 
     def delete(i : Oid, p : String = "")
       @o.delete i if p.empty?
       st = i + p.to_slice
-      @d.from(i + p.to_slice) do |k, o|
+      @d.from st do |k, o|
         break unless k.size >= st.size && k[..st.size - 1] == st
-        delete i, String.new(k[16..]), String.new(o)
+        delete i, String.new(k[16..]), o
       end
     end
 
     def delete!(i : Oid, p : String = "")
-      delete i, p, (String.new @d.get(i + p.to_slice).not_nil! rescue return)
+      delete i, p, @d.get(i + p.to_slice).not_nil! rescue return
     end
 
     def where(p : String, v : I, &)
@@ -306,10 +303,9 @@ module Trove
 
       ik = Bytes.new 20
       d.copy_to ik.to_unsafe, 16
-      ppi = pp[:i]
-      Pointer(UInt8).new(pointerof(ppi).address).copy_to ik.to_unsafe + 16, 4
+      IO::ByteFormat::LittleEndian.encode pp[:i], ik[16..]
 
-      @i.from ik do |k, v|
+      @i.from ik do |k, _|
         break unless k[..15] == d
         yield k[-16..]
       end
