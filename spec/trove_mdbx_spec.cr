@@ -19,9 +19,6 @@ describe Trove do
       i:
         - MDBX_DB_DEFAULTS
         - MDBX_CREATE
-      u:
-        - MDBX_DB_DEFAULTS
-        - MDBX_CREATE
       o:
         - MDBX_DB_DEFAULTS
         - MDBX_CREATE
@@ -81,12 +78,12 @@ describe Trove do
       tx.where("dict.hello.0", "number").should eq [oid]
       tx.where("dict.hello", "number").should eq [oid]
 
-      # unique is way faster than where,
-      # but works correctly only for values that were always unique
+      # where! is faster than where,
+      # but returns only one value
 
-      tx.unique("dict.boolean", false).should eq oid
-      tx.unique("dict.hello", "number").should eq oid
-      tx.unique("dict.hello", 42_i64).should eq oid
+      tx.where!("dict.boolean", false).should eq oid
+      tx.where!("dict.hello", "number").should eq oid
+      tx.where!("dict.hello", 42_i64).should eq oid
 
       tx.delete! oid, "dict.hello"
       tx.get(oid, "dict.hello").should eq ["number", 42, -4.2, 0.0]

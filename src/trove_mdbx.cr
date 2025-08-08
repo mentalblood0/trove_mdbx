@@ -11,7 +11,7 @@ module Trove
   alias A = JSON::Any
   alias H = Hash(String, A)
   alias AA = Array(A)
-  alias Dbis = {d: LibMdbx::Dbi, i: LibMdbx::Dbi, u: LibMdbx::Dbi, o: LibMdbx::Dbi}
+  alias Dbis = {d: LibMdbx::Dbi, i: LibMdbx::Dbi, o: LibMdbx::Dbi}
 
   class Chest
     include YAML::Serializable
@@ -20,14 +20,14 @@ module Trove
     getter env : Mdbx::Env
 
     @[YAML::Field(ignore: true)]
-    getter dbis : Dbis = {d: LibMdbx::Dbi.new(2), i: LibMdbx::Dbi.new(3), u: LibMdbx::Dbi.new(4), o: LibMdbx::Dbi.new(5)}
+    getter dbis : Dbis = {d: LibMdbx::Dbi.new(2), i: LibMdbx::Dbi.new(3), o: LibMdbx::Dbi.new(5)}
 
     def initialize(@env)
       after_initialize
     end
 
     def after_initialize
-      @env.transaction { |tx| @dbis = {d: tx.dbi("d"), i: tx.dbi("i"), u: tx.dbi("u"), o: tx.dbi("o")} }
+      @env.transaction { |tx| @dbis = {d: tx.dbi("d"), i: tx.dbi("i"), o: tx.dbi("o")} }
     end
 
     def transaction(&)
@@ -39,13 +39,11 @@ module Trove
     getter tx : Mdbx::Transaction
     getter d : Mdbx::Db
     getter i : Mdbx::Db
-    getter u : Mdbx::Db
     getter o : Mdbx::Db
 
     def initialize(@tx, dbis : Dbis)
       @d = @tx.db dbis[:d]
       @i = @tx.db dbis[:i]
-      @u = @tx.db dbis[:u]
       @o = @tx.db dbis[:o]
     end
 
@@ -218,7 +216,6 @@ module Trove
 
       ik = ike d, pp[:i], i
       @i.upsert ik, Bytes.empty
-      @u.upsert d, i
     end
 
     def set(i : Oid, p : String, o : A)
@@ -232,7 +229,6 @@ module Trove
       d = digest pp[:b], (@d.get(i + p.to_slice).not_nil! rescue return)
 
       @i.delete ike d, pp[:i], i
-      @u.delete d
     end
 
     def set!(i : Oid, p : String, o : A)
@@ -313,7 +309,6 @@ module Trove
 
       raise "Index record not found for #{i} #{p} #{ve}" unless @i.delete ike d, pp[:i], i
       @d.delete st
-      @u.delete d
     end
 
     def delete(i : Oid, p : String = "")
@@ -349,8 +344,11 @@ module Trove
       r
     end
 
-    def unique(p : String, v : I)
-      @u.get digest p.to_slice, encode v
+    def where!(p : String, v : I)
+      d = digest p.to_slice, encode v
+      r = @i.get_eg(d).not_nil![0] rescue return nil
+      return nil unless r[..15] == d
+      r[-16..]
     end
   end
 end

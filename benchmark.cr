@@ -58,11 +58,8 @@ end
 Benchmark.ips do |b|
   n = 10**4 - 1
   (1..n).each { chest.transaction { |tx| tx << cs } }
-  b.report "get one oid from index (unique)" do
-    chest.transaction { |tx| tx.unique k, v }
-  end
   b.report "get one oid from index" do
-    chest.transaction { |tx| tx.where(k, v) { |ii| break } }
+    chest.transaction { |tx| tx.where! k, v }
   end
   b.report "get #{n + 1} oids from index" do
     g = 0
