@@ -143,30 +143,21 @@ module Trove
         r[0] = {{'f'.ord}}.to_u8
         IO::ByteFormat::LittleEndian.encode(v, r[1..])
         r
-      when true
-        Bytes.new 1, {{'T'.ord}}.to_u8
-      when false
-        Bytes.new 1, {{'F'.ord}}.to_u8
-      when nil
-        Bytes.empty
-      else
-        raise "Can not encode #{v}"
+      when true  then Bytes.new 1, {{'T'.ord}}.to_u8
+      when false then Bytes.new 1, {{'F'.ord}}.to_u8
+      when nil   then Bytes.empty
+      else            raise "Can not encode #{v}"
       end
     end
 
     protected def decode(b : Bytes) : I
       return nil if b.empty?
       case b[0]
-      when {{'s'.ord}}
-        String.new b[1..]
-      when {{'i'.ord}}
-        IO::ByteFormat::LittleEndian.decode(Int64, b[1..])
-      when {{'f'.ord}}
-        IO::ByteFormat::LittleEndian.decode(Float64, b[1..])
-      when {{'T'.ord}}
-        true
-      when {{'F'.ord}}
-        false
+      when {{'s'.ord}} then String.new b[1..]
+      when {{'i'.ord}} then IO::ByteFormat::LittleEndian.decode(Int64, b[1..])
+      when {{'f'.ord}} then IO::ByteFormat::LittleEndian.decode(Float64, b[1..])
+      when {{'T'.ord}} then true
+      when {{'F'.ord}} then false
       end
     end
 
