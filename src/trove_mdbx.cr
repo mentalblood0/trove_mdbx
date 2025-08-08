@@ -81,7 +81,7 @@ module Trove
     end
 
     def oids(&)
-      @tx.db(@o).each { |o, _| yield o }
+      @o.each { |o, _| yield o }
     end
 
     def oids
