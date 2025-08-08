@@ -276,10 +276,8 @@ module Trove
 
     def has_key?(i : Oid, p : String = "")
       st = i + p.to_slice
-      @d.from st do |k, _|
-        return k.size >= st.size && k[..st.size - 1] == st
-      end
-      false
+      r = @d.get_eg(st).not_nil![0] rescue return false
+      r[..st.size - 1]? == st
     end
 
     def has_key!(i : Oid, p : String = "")
