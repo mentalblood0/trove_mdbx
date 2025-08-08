@@ -70,7 +70,7 @@ module Trove
     end
 
     protected def partition(p : Bytes)
-      dl = p.rindex '.'.ord.to_u8
+      dl = p.rindex {{'.'.ord}}.to_u8!
       {b: p[..dl.not_nil! - 1], i: String.new(p[dl.not_nil! + 1..]).to_u32} rescue {b: p, i: 0_u32}
     end
 
@@ -249,7 +249,7 @@ module Trove
 
     protected def h2a(a : A) : A
       if ah = a.as_h?
-        if ah.keys.all? { |k| k.to_u64 rescue nil }
+        if ah.keys.all? { |k| k.to_u32? }
           vs = ah.values
           return A.new AA.new(ah.size) { |i| h2a vs[i] }
         else
