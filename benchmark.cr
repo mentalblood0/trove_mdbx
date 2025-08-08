@@ -18,9 +18,6 @@ env:
     i:
       - MDBX_DB_DEFAULTS
       - MDBX_CREATE
-    u:
-      - MDBX_DB_DEFAULTS
-      - MDBX_CREATE
     o:
       - MDBX_DB_DEFAULTS
       - MDBX_CREATE
