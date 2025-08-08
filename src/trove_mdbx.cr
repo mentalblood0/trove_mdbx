@@ -290,10 +290,10 @@ module Trove
       flat = H.new
       st = i + p.to_slice
       @d.from st do |k, o|
-        break unless k.size >= st.size && k[..st.size - 1] == st
-        flat[String.new(k[16..]).lchop(p).lchop('.')] = A.new decode o
+        break unless k[..st.size - 1]? == st
+        flat[String.new k[st.size + (k[st.size]? == {{'.'.ord}}.to_u8! ? 1 : 0)..]] = A.new decode o
       end
-      return nil if flat.size == 0
+      return nil if flat.empty?
       return flat[""] if flat.has_key? ""
       h2a A.new nest flat
     end
