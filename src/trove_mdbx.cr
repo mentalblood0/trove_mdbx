@@ -219,8 +219,7 @@ module Trove
     end
 
     def set(i : Oid, p : String, o : A)
-      delete i, p unless p.empty? && !@o.get i
-      @o.upsert i, Bytes.empty
+      @o.insert i, Bytes.empty rescue (delete i, p unless p.empty?)
       set i, p, o.raw
     end
 
