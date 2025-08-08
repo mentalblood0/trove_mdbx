@@ -30,8 +30,8 @@ module Trove
       @env.transaction { |tx| @dbis = {d: tx.dbi("d"), i: tx.dbi("i"), o: tx.dbi("o")} }
     end
 
-    def transaction(&)
-      @env.transaction { |tx| yield Transaction.new tx, @dbis }
+    def transaction(flags : LibMdbx::TxnFlags = LibMdbx::TxnFlags.new(0), &)
+      @env.transaction(flags) { |tx| yield Transaction.new tx, @dbis }
     end
   end
 
@@ -47,8 +47,8 @@ module Trove
       @o = @tx.db dbis[:o]
     end
 
-    def transaction(&)
-      @tx.transaction { |tx| yield Transaction.new tx }
+    def transaction(flags : LibMdbx::TxnFlags = LibMdbx::TxnFlags.new(0), &)
+      @tx.transaction(flags) { |tx| yield Transaction.new tx, @dbis }
     end
 
     protected def new_oid : Oid

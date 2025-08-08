@@ -44,30 +44,30 @@ Benchmark.ips do |b|
     chest.transaction { |tx| tx.set! i, k, va }
   end
   b.report "has key" do
-    chest.transaction { |tx| raise "Can not get" unless tx.has_key? i, k }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| raise "Can not get" unless tx.has_key? i, k }
   end
   b.report "has key (only simple)" do
-    chest.transaction { |tx| raise "Can not get" unless tx.has_key! i, k }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| raise "Can not get" unless tx.has_key! i, k }
   end
   b.report "get full" do
-    chest.transaction { |tx| raise "Can not get" if tx.get(i) != cs }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| raise "Can not get" if tx.get(i) != cs }
   end
   b.report "get field" do
-    chest.transaction { |tx| raise "Can not get" if tx.get(i, k) != v }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| raise "Can not get" if tx.get(i, k) != v }
   end
   b.report "get field (only simple)" do
-    chest.transaction { |tx| raise "Can not get" if tx.get!(i, k) != v }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| raise "Can not get" if tx.get!(i, k) != v }
   end
 end
 Benchmark.ips do |b|
   n = 10**4 - 1
   (1..n).each { chest.transaction { |tx| tx << cs } }
   b.report "get one oid from index" do
-    chest.transaction { |tx| tx.where! k, v }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| tx.where! k, v }
   end
   b.report "get #{n + 1} oids from index" do
     g = 0
-    chest.transaction { |tx| tx.where(k, v) { |ii| g += 1 } }
+    chest.transaction(LibMdbx::TxnFlags::MDBX_TXN_RDONLY) { |tx| tx.where(k, v) { |ii| g += 1 } }
     raise "#{g} != #{n + 1}" if g != n + 1
   end
 end
