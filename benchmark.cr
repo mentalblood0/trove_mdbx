@@ -29,6 +29,7 @@ YAML
 cs = JSON.parse COMPLEX_STRUCTURE.to_json
 k = "level1.level2.level3.1.metadata.level4.level5.level6.note"
 v = "This is six levels deep"
+va = JSON::Any.new v
 
 Benchmark.ips do |b|
   b.report "set+delete" do
@@ -39,6 +40,9 @@ end
 i = Bytes.new 0
 chest.transaction { |tx| i = tx << cs }
 Benchmark.ips do |b|
+  b.report "set (old only simple)" do
+    chest.transaction { |tx| tx.set! i, k, va }
+  end
   b.report "has key" do
     chest.transaction { |tx| raise "Can not get" unless tx.has_key? i, k }
   end

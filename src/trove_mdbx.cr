@@ -224,16 +224,17 @@ module Trove
       set i, p, o.raw
     end
 
-    protected def deletei(i : Oid, p : String)
-      pp = partition p.to_slice
-      d = digest pp[:b], (@d.get(i + p.to_slice).not_nil! rescue return)
-
-      @i.delete ike d, pp[:i], i
-    end
-
     def set!(i : Oid, p : String, o : A)
-      deletei i, p
-      @o.upsert i, Bytes.empty
+      begin
+        @o.insert i, Bytes.empty
+      rescue
+        if dc = @d.get i + p.to_slice
+          pp = partition p.to_slice
+          d = digest pp[:b], dc
+          @i.delete ike d, pp[:i], i
+        end
+      end
+
       set i, p, o.raw
     end
 
