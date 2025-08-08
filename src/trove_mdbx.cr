@@ -11,6 +11,7 @@ module Trove
   alias A = JSON::Any
   alias H = Hash(String, A)
   alias AA = Array(A)
+  alias Dbis = {d: LibMdbx::Dbi, i: LibMdbx::Dbi, u: LibMdbx::Dbi, o: LibMdbx::Dbi}
 
   class Chest
     include YAML::Serializable
@@ -18,11 +19,19 @@ module Trove
 
     getter env : Mdbx::Env
 
+    @[YAML::Field(ignore: true)]
+    getter dbis : Dbis = {d: LibMdbx::Dbi.new(2), i: LibMdbx::Dbi.new(3), u: LibMdbx::Dbi.new(4), o: LibMdbx::Dbi.new(5)}
+
     def initialize(@env)
+      after_initialize
+    end
+
+    def after_initialize
+      @env.transaction { |tx| @dbis = {d: tx.dbi("d"), i: tx.dbi("i"), u: tx.dbi("u"), o: tx.dbi("o")} }
     end
 
     def transaction(&)
-      @env.transaction { |tx| yield Transaction.new tx }
+      @env.transaction { |tx| yield Transaction.new tx, @dbis }
     end
   end
 
@@ -33,11 +42,11 @@ module Trove
     getter u : Mdbx::Db
     getter o : Mdbx::Db
 
-    def initialize(@tx)
-      @d = @tx.db 2
-      @i = @tx.db 3
-      @u = @tx.db 4
-      @o = @tx.db 5
+    def initialize(@tx, dbis : Dbis)
+      @d = @tx.db dbis[:d]
+      @i = @tx.db dbis[:i]
+      @u = @tx.db dbis[:u]
+      @o = @tx.db dbis[:o]
     end
 
     def transaction(&)
