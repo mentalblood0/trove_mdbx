@@ -246,8 +246,7 @@ module Trove
     protected def h2a(a : A) : A
       if ah = a.as_h?
         if ah.keys.all? { |k| k.to_u32? }
-          vs = ah.values
-          return A.new AA.new(ah.size) { |i| h2a vs[i] }
+          return A.new ah.values.map { |e| h2a e }
         else
           ah.each { |k, v| ah[k] = h2a v }
         end
