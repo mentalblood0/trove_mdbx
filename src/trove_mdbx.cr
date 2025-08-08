@@ -130,45 +130,45 @@ module Trove
       case v
       when String
         r = Bytes.new 1 + v.bytesize
-        r[0] = {{'s'.ord}}.to_u8
+        r[0] = {{'s'.ord}}.to_u8!
         v.to_unsafe.copy_to r.to_unsafe + 1, v.bytesize
         r
       when Int64
         if v >= Int8::MIN && v <= Int8::MAX
           r = Bytes.new 1 + 1
-          r[0] = {{'1'.ord}}.to_u8
+          r[0] = {{'1'.ord}}.to_u8!
           r[1] = v.to_i8!.to_u8
           r
         elsif v >= Int16::MIN && v <= Int16::MAX
           r = Bytes.new 1 + 2
-          r[0] = {{'2'.ord}}.to_u8
+          r[0] = {{'2'.ord}}.to_u8!
           IO::ByteFormat::LittleEndian.encode v.to_i16!, r[1..]
           r
         elsif v >= Int32::MIN && v <= Int32::MAX
           r = Bytes.new 1 + 4
-          r[0] = {{'4'.ord}}.to_u8
+          r[0] = {{'4'.ord}}.to_u8!
           IO::ByteFormat::LittleEndian.encode v.to_i32!, r[1..]
           r
         else
           r = Bytes.new 1 + 8
-          r[0] = {{'8'.ord}}.to_u8
+          r[0] = {{'8'.ord}}.to_u8!
           IO::ByteFormat::LittleEndian.encode v, r[1..]
           r
         end
       when Float64
         if v.finite? && v == (vf32 = v.to_f32).to_f64
           r = Bytes.new 1 + 4
-          r[0] = {{'3'.ord}}.to_u8
+          r[0] = {{'3'.ord}}.to_u8!
           IO::ByteFormat::LittleEndian.encode vf32.not_nil!, r[1..]
           r
         else
           r = Bytes.new 1 + 8
-          r[0] = {{'5'.ord}}.to_u8
+          r[0] = {{'5'.ord}}.to_u8!
           IO::ByteFormat::LittleEndian.encode v, r[1..]
           r
         end
-      when true  then Bytes.new 1, {{'T'.ord}}.to_u8
-      when false then Bytes.new 1, {{'F'.ord}}.to_u8
+      when true  then Bytes.new 1, {{'T'.ord}}.to_u8!
+      when false then Bytes.new 1, {{'F'.ord}}.to_u8!
       when nil   then Bytes.empty
       else            raise "Can not encode #{v}"
       end
@@ -178,11 +178,11 @@ module Trove
       return nil if b.empty?
       case b[0]
       when {{'s'.ord}} then String.new b[1..]
-      when {{'1'.ord}} then IO::ByteFormat::LittleEndian.decode(Int8, b[1..]).to_i64
-      when {{'2'.ord}} then IO::ByteFormat::LittleEndian.decode(Int16, b[1..]).to_i64
-      when {{'4'.ord}} then IO::ByteFormat::LittleEndian.decode(Int32, b[1..]).to_i64
+      when {{'1'.ord}} then IO::ByteFormat::LittleEndian.decode(Int8, b[1..]).to_i64!
+      when {{'2'.ord}} then IO::ByteFormat::LittleEndian.decode(Int16, b[1..]).to_i64!
+      when {{'4'.ord}} then IO::ByteFormat::LittleEndian.decode(Int32, b[1..]).to_i64!
       when {{'8'.ord}} then IO::ByteFormat::LittleEndian.decode(Int64, b[1..])
-      when {{'3'.ord}} then IO::ByteFormat::LittleEndian.decode(Float32, b[1..]).to_f64
+      when {{'3'.ord}} then IO::ByteFormat::LittleEndian.decode(Float32, b[1..]).to_f64!
       when {{'5'.ord}} then IO::ByteFormat::LittleEndian.decode(Float64, b[1..])
       when {{'T'.ord}} then true
       when {{'F'.ord}} then false
